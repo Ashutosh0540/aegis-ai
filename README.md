@@ -135,17 +135,8 @@ flowchart TD
 | DevOps | Docker Compose, GitHub Actions |
 | Testing | pytest, pytest-asyncio, FastAPI test client, deterministic fake AI providers |
 
-## Screenshots
 
-Real screenshots should be added after the hosted demo or product capture pass.
 
-| Area | Placeholder |
-|---|---|
-| Dashboard | TODO: Add dashboard screenshot |
-| Document Upload | TODO: Add document upload screenshot |
-| Chat | TODO: Add cited chat answer screenshot |
-| Analytics | TODO: Add analytics overview screenshot |
-| Workflow Builder | TODO: Add n8n workflow screenshot |
 
 ## Project Structure
 
