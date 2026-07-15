@@ -1,0 +1,13 @@
+# Minimal scrape config for local/dev use. Production deployments typically
+# run Prometheus outside this compose file (e.g. a managed/cluster-wide
+# instance) and would instead add a scrape target pointing at wherever the
+# api service is actually reachable — this file is a working starting point
+# for `docker compose up`, not a production topology.
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: aegis-ai-api
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["api:8000"]

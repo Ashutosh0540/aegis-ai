@@ -1,0 +1,72 @@
+{
+  "name": "AegisAI - Ticket Created Notification",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ticket.created",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Ticket Created Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [260, 300],
+      "webhookId": "ticket-created"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json[\"priority\"]}}",
+              "value2": "urgent"
+            }
+          ]
+        }
+      },
+      "id": "is-urgent",
+      "name": "Is Urgent?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Placeholder for a real notification step (Slack, PagerDuty, etc).\n// Configure a credential and swap this Function node for the relevant\n// n8n integration node once you've decided how urgent tickets should\n// be routed in your organization.\nreturn items.map(item => {\n  console.log('URGENT ticket created:', item.json);\n  return item;\n});"
+      },
+      "id": "notify-urgent",
+      "name": "Notify (Urgent Path)",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [700, 220]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Standard-priority tickets just get logged here by default.\n// Extend this path (e.g. write to a spreadsheet, create a Jira issue)\n// as your workflow automation needs grow.\nreturn items.map(item => {\n  console.log('Ticket created:', item.json);\n  return item;\n});"
+      },
+      "id": "log-standard",
+      "name": "Log (Standard Path)",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [700, 380]
+    }
+  ],
+  "connections": {
+    "Ticket Created Webhook": {
+      "main": [[{ "node": "Is Urgent?", "type": "main", "index": 0 }]]
+    },
+    "Is Urgent?": {
+      "main": [
+        [{ "node": "Notify (Urgent Path)", "type": "main", "index": 0 }],
+        [{ "node": "Log (Standard Path)", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "meta": {
+    "description": "Triggered by AegisAI's N8nClient.trigger_webhook('ticket.created', ...) whenever a ticket is created via the API or the Workflow Agent. Import this into your n8n instance at http://localhost:5678, review the two Function node placeholders, and replace them with real notification steps (Slack, email, PagerDuty, etc.) for your organization."
+  }
+}
