@@ -1,299 +1,321 @@
 # AegisAI
 
-**Enterprise AI Operations & Knowledge Intelligence Platform**
+**Enterprise AI operations and knowledge intelligence platform.**
 
-> Secure AI-powered enterprise workflow automation.
+AegisAI is an open-source platform for turning private company knowledge into governed AI workflows. It combines multi-tenant document management, retrieval-augmented generation, LangGraph agents, workflow automation, audit logging, and production-ready observability in one full-stack monorepo.
 
-This is a monorepo. See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for
-the full architecture writeup.
+[![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![Next.js](https://img.shields.io/badge/Next.js-14-black?logo=nextdotjs&logoColor=white)](https://nextjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.6-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![LangGraph](https://img.shields.io/badge/LangGraph-0.2-1C3C3C)](https://langchain-ai.github.io/langgraph/)
+[![LangChain](https://img.shields.io/badge/LangChain-0.3-1C3C3C)](https://www.langchain.com/)
+[![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![Redis](https://img.shields.io/badge/Redis-7-DC382D?logo=redis&logoColor=white)](https://redis.io/)
+[![CI](https://img.shields.io/badge/GitHub_Actions-CI-2088FF?logo=githubactions&logoColor=white)](.github/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](#license)
 
-## Status: Milestone 6 of 6 (complete)
+---
 
-| Milestone | Scope | Status |
-|---|---|---|
-| 1 | Project setup, Docker, FastAPI, Next.js, Auth, Database, Organizations | ✅ Done |
-| 2 | Documents: upload, storage, processing, metadata | ✅ Done |
-| 3 | RAG: embeddings, FAISS/Pinecone, LangChain | ✅ Done |
-| 4 | LangGraph agents: Supervisor, Knowledge | ✅ Done |
-| 5 | Workflow automation: n8n, email, ticketing | ✅ Done |
-| 6 | Analytics, audit, monitoring, production readiness | ✅ Done |
+## Overview
 
-**Milestone 6 detail:** fully verified. Backend tests pass end-to-end
-(`95 passed`) and frontend verification passes (`npm run build` and
-`npm run lint`). During final verification, `greenlet==3.1.1` was added
-to both `apps/api/requirements.txt` and `apps/worker/requirements.txt`
-to satisfy SQLAlchemy async runtime requirements on Python 3.12.
+Most enterprises already have the knowledge they need to move faster. The problem is that it is scattered across documents, tickets, inboxes, workflow tools, and tribal memory. Teams spend time searching, copying context between systems, and making decisions without a reliable audit trail.
 
-## Repository structure
+AegisAI is designed as the AI operations layer for that environment. It ingests internal documents, chunks and embeds knowledge, answers questions with citations, routes requests through specialized AI agents, creates workflow artifacts, and keeps the whole system tenant-scoped, observable, and auditable.
 
+> Built as a modular monolith: simple to run locally, clear to reason about, and structured so modules can be extracted later if scale demands it.
+
+## Why AegisAI?
+
+| Enterprise pain | AegisAI approach |
+|---|---|
+| Disconnected tools and workflows | Connect document intelligence, chat, tickets, email, and n8n webhooks behind one API. |
+| Knowledge silos | Turn uploaded PDFs, DOCX files, Markdown, and text into a searchable organization knowledge base. |
+| Manual operational work | Use LangGraph agents to answer questions, draft tickets, and draft or send emails. |
+| Weak AI governance | Scope data by organization, enforce RBAC, store structured citations, and write audit logs. |
+| Hard-to-operate prototypes | Ship with Docker Compose, Celery workers, Redis, Postgres, MinIO, Prometheus, Grafana, and CI. |
+
+## Key Features
+
+### Identity and Access
+
+- Email/password authentication with access and refresh JWTs.
+- Email verification and password reset token flows.
+- Multi-tenant organizations with `owner`, `admin`, and `member` roles.
+- Organization-scoped authorization guards across documents, chat, workflows, analytics, and audit logs.
+
+### Knowledge Base
+
+- Upload and manage PDF, DOCX, Markdown, and plain-text documents.
+- Store original files in an S3-compatible backend, using MinIO locally.
+- Version documents immutably so AI citations can point to the exact source version.
+- Process files asynchronously through Celery workers.
+- Detect scanned PDFs that need OCR instead of silently indexing empty content.
+
+### Retrieval-Augmented Generation
+
+- Extract, chunk, embed, and index document content.
+- Use FAISS for local vector search and Pinecone support for production vector storage.
+- Answer questions with retrieved context and structured citations.
+- Restrict retrieval by organization and optionally by document.
+
+### AI Agents
+
+- LangGraph supervisor routes each request to the right specialized agent.
+- Knowledge Agent answers grounded questions over uploaded documents.
+- Workflow Agent drafts and creates support tickets from natural-language requests.
+- Email Agent drafts email content and sends when a recipient address is present.
+- Agent runs are persisted for analytics and operational visibility.
+
+### Workflow Automation
+
+- Ticket CRUD for organization workflows.
+- n8n webhook integration for external automation on ticket creation.
+- Example n8n workflow included in `workflows/n8n/`.
+- SMTP email provider abstraction with a console-safe local fallback.
+
+### Governance and Observability
+
+- Append-only audit logs for API requests, authentication events, chat actions, and agent invocations.
+- Owner/admin-only access to organization audit logs.
+- Analytics overview for document, chat, ticket, and agent-run activity.
+- Prometheus metrics endpoint and starter Grafana dashboard.
+- Optional LangSmith tracing, disabled unless explicitly configured.
+
+## Architecture
+
+```mermaid
+flowchart TD
+    Web[Next.js Web App] --> API[FastAPI API /api/v1]
+    API --> Auth[Auth + Organizations + RBAC]
+    API --> Docs[Documents Module]
+    API --> Chat[Chat Module]
+    API --> Agents[Agents Module]
+    API --> Workflows[Workflow Module]
+    API --> Audit[Audit + Analytics]
+
+    Docs --> Storage[S3-Compatible Storage / MinIO]
+    Docs --> Worker[Celery Worker]
+    Worker --> Extract[PDF / DOCX / Markdown / Text Extraction]
+    Extract --> Embeddings[HuggingFace Embeddings]
+    Embeddings --> Vector[(FAISS local / Pinecone production)]
+
+    Chat --> Supervisor[LangGraph Supervisor]
+    Agents --> Supervisor
+    Supervisor --> Knowledge[Knowledge Agent]
+    Supervisor --> WorkflowAgent[Workflow Agent]
+    Supervisor --> EmailAgent[Email Agent]
+
+    Knowledge --> Vector
+    Knowledge --> LLM[Ollama LLM Provider]
+    WorkflowAgent --> Tickets[(Tickets)]
+    WorkflowAgent --> N8N[n8n Webhooks]
+    EmailAgent --> SMTP[SMTP / Console Email Provider]
+
+    API --> Postgres[(PostgreSQL)]
+    Worker --> Postgres
+    API --> Redis[(Redis)]
+    Worker --> Redis
+    API --> Metrics[Prometheus / Grafana]
 ```
+
+## Technology Stack
+
+| Layer | Technologies |
+|---|---|
+| Frontend | Next.js 14, React 18, TypeScript, Tailwind CSS, React Hook Form, Zod, TanStack Query |
+| Backend | FastAPI, Python 3.12, SQLAlchemy 2, Alembic, Pydantic v2 |
+| AI | LangGraph, LangChain Core, HuggingFace sentence-transformers, Ollama, FAISS, Pinecone |
+| Database | PostgreSQL in Docker, SQLite for tests |
+| Cache and Jobs | Redis, Celery |
+| Storage | S3-compatible storage via boto3, MinIO for local development |
+| Workflow | n8n webhook integration, ticket workflow module, SMTP email provider |
+| Observability | Prometheus, Grafana, LangSmith tracing hook |
+| DevOps | Docker Compose, GitHub Actions |
+| Testing | pytest, pytest-asyncio, FastAPI test client, deterministic fake AI providers |
+
+## Screenshots
+
+Real screenshots should be added after the hosted demo or product capture pass.
+
+| Area | Placeholder |
+|---|---|
+| Dashboard | TODO: Add dashboard screenshot |
+| Document Upload | TODO: Add document upload screenshot |
+| Chat | TODO: Add cited chat answer screenshot |
+| Analytics | TODO: Add analytics overview screenshot |
+| Workflow Builder | TODO: Add n8n workflow screenshot |
+
+## Project Structure
+
+```text
 aegis-ai/
-├── apps/
-│   ├── web/        # Next.js frontend (TypeScript, Tailwind, shadcn/ui)
-│   ├── api/         # FastAPI backend (Python 3.12, SQLAlchemy 2, Alembic)
-│   └── worker/      # Celery background worker
-├── packages/
-│   ├── ai/          # Shared: embeddings, vector store (FAISS/Pinecone), LLM providers
-│   ├── database/     # (future) shared DB utilities if extracted from api
-│   └── shared/       # (future) shared types/utilities
-├── workflows/
-│   └── n8n/          # (Milestone 5) n8n workflow definitions
-├── docs/              # Architecture and design docs
-├── docker/            # docker-compose.yml and related config
-├── .github/workflows/ # CI
-└── tests/             # (module-local tests live inside apps/api/tests for now)
+|-- apps/
+|   |-- api/              # FastAPI backend, Alembic migrations, tests
+|   |-- web/              # Next.js frontend
+|   `-- worker/           # Celery worker entrypoint
+|-- packages/
+|   |-- ai/               # Shared AI core: embeddings, vector stores, LLMs, agents
+|   |-- database/         # Reserved for future shared database utilities
+|   `-- shared/           # Reserved for future shared types/utilities
+|-- docker/               # Docker Compose and Prometheus config
+|-- docs/                 # Architecture and design notes
+|-- workflows/
+|   |-- grafana/          # Starter Grafana dashboard
+|   `-- n8n/              # Example n8n workflow
+|-- tests/                # Root-level test placeholder
+`-- .github/workflows/    # CI pipeline
 ```
 
-## What's implemented in Milestone 1
+## Core Modules
 
-**Backend (`apps/api`)**
-- Auth: register, login, JWT access/refresh tokens, email verification
-  tokens, forgot/reset password
-- Organizations: create, list, invite members, accept invite, RBAC
-  (`owner` / `admin` / `member`)
-- Users: read/update own profile
-- PostgreSQL via SQLAlchemy 2 (async) + Alembic migration (`0001_initial_schema`)
-- Rate limiting on login and forgot-password
-- Global exception handling, CORS, health check endpoint
-- 15 passing tests (`apps/api/tests/`)
+| Module | Purpose |
+|---|---|
+| Authentication | Registers users, logs them in, issues JWTs, and manages verification/reset tokens. |
+| Organizations | Provides the tenant boundary, memberships, invites, and role enforcement. |
+| Documents | Handles uploads, S3-compatible storage, versioning, text extraction, chunking, and indexing. |
+| Chat | Stores conversations and messages, runs grounded RAG, and returns structured citations. |
+| Agents | Exposes available agents, ad-hoc invocation, supervisor routing, and agent run history. |
+| Workflow | Manages tickets and triggers n8n automation when tickets are created. |
+| Analytics | Aggregates organization activity counts and a placeholder AI cost estimate. |
+| Audit | Records request, auth, chat, and agent events in an append-only audit table. |
 
-**Frontend (`apps/web`)**
-- Landing page, register page, login page, dashboard (protected)
-- Organizations: create + list, right from the dashboard
-- Documents: upload (PDF/DOCX/Markdown/TXT), list with live status
-  polling, delete (`apps/web/app/dashboard/documents`)
-- Typed API client (`lib/api-client.ts`)
-- Dark-mode-first Tailwind styling
-- Verified: `npm run build` and `npm run lint` both pass clean
+## Enterprise Features
 
-**Infra**
-- Dockerfiles for api, worker, web
-- `docker/docker-compose.yml` — Postgres, Redis, MinIO, api, worker, web
-- GitHub Actions CI: backend tests + frontend build/lint
+| Capability | Current implementation |
+|---|---|
+| JWT Authentication | Access and refresh tokens signed with `JWT_SECRET_KEY`. |
+| RBAC | Organization roles enforced with FastAPI dependency guards. |
+| Multi-Tenant Organizations | Tenant data carries `organization_id`; vector search is namespaced or indexed per organization. |
+| Audit Logging | Best-effort append-only audit logs with owner/admin access control. |
+| Prompt Injection Protection | RAG prompts instruct the model to answer only from retrieved context, and citations are stored separately from model text. Full prompt-injection hardening remains a future security track. |
+| PII Handling | Sensitive audit views are role-restricted and secrets are environment-driven. Automated PII detection/redaction is not yet implemented. |
+| Versioned APIs | All product routes are mounted under `/api/v1`. |
+| Background Workers | Celery processes document extraction, chunking, embedding, and indexing. |
+| Docker Deployment | Local stack includes web, API, worker, Postgres, Redis, MinIO, Ollama, n8n, Prometheus, and Grafana. |
+| CI | GitHub Actions runs backend tests plus frontend lint/build on pushes and pull requests. |
+| Monitoring | `/metrics` exposes Prometheus counters/histograms; Grafana dashboard JSON is included. |
 
-## Milestone 2 additions
+## Running Locally
 
-- **Documents module** (`apps/api/app/modules/documents`): upload, list,
-  get, per-document versions, per-version chunks, soft delete — all scoped
-  by organization and RBAC-gated (delete requires owner/admin).
-- **Storage**: `StorageBackend` protocol + S3-compatible implementation
-  (MinIO locally, swappable to real AWS S3 in production).
-- **Processing pipeline**: Celery task extracts text (PDF via pypdf, DOCX
-  via python-docx, Markdown/TXT as plain text), chunks it (sliding window
-  with overlap, paragraph/sentence-boundary aware), and persists
-  `DocumentChunk` rows. Status flow: `pending` → `processing` →
-  `completed` / `failed` / `needs_ocr`.
-- **Versioning**: re-uploading a document creates a new immutable version
-  (own storage key, checksum, chunks) without touching prior versions.
-- New Alembic migration: `0002_documents` (documents, document_versions,
-  document_chunks).
-- 14 new tests (extraction/chunking unit tests + full upload→process→chunk
-  integration tests) — **29 tests passing** total.
-
-## Milestone 3 additions
-
-- **Shared `packages/ai` package** (`aegis_ai_core`): `EmbeddingProvider`,
-  `VectorStoreBackend`, `LLMProvider` protocols, each with a production
-  implementation (HuggingFace sentence-transformers / Pinecone / Ollama)
-  and — where the real thing needs network access this environment
-  doesn't have — a test double. FAISS itself is real in both dev and
-  tests, since it needs no network at all.
-- **Embedding generation wired into document processing**: every chunk
-  produced during Milestone 2's extraction step is now embedded and
-  upserted into the vector store (FAISS locally, Pinecone in production),
-  scoped by organization.
-- **New `chat` module**: conversations + messages, RAG-backed. Posting a
-  message embeds the question, retrieves the top-k most relevant chunks
-  (optionally scoped to one document), assembles a prompt via a LangChain
-  `PromptTemplate` with recent history as memory, generates an answer,
-  and stores structured citations (`document_id`, `version_id`,
-  `chunk_index`) — not just prose mentioning a filename.
-- **Frontend**: `/dashboard/chat` — conversation list, message thread,
-  citation chips under each answer.
-- New Alembic migration: `0003_chat` (conversations, chat_messages).
-- 20 new tests (FAISS retrieval ranking/filtering/persistence, prompt
-  assembly, full upload→embed→chat→cite integration flows) — **49 tests
-  passing** total.
-
-## Milestone 4 additions
-
-- **`aegis_ai_core.agents`**: a LangGraph graph (`Supervisor →
-  KnowledgeAgent → END`). The supervisor node is a real routing decision
-  point recorded in graph state, even though only one destination exists
-  today — Milestone 5's Email/Meeting/Workflow agents register as new
-  routes here without restructuring the graph.
-- **`chat.service.post_message` rewired** to call the graph instead of
-  the Milestone 3 inline chain — same function signature, same
-  `ChatMessage` output shape, every existing chat test passes unchanged.
-- **New `agents` module**: `GET /agents` (static capability registry),
-  `POST /organizations/{org_id}/agents/invoke` (ad-hoc, non-chat agent
-  invocation), `GET /organizations/{org_id}/agents/runs` (audit trail —
-  agent, route, latency, status, error on failure).
-- New Alembic migration: `0004_agents` (agent_runs).
-- 12 new tests (graph routing/retrieval/scoping at the `aegis_ai_core`
-  level, plus full API-level invoke/run-history/RBAC tests) — **61 tests
-  passing** total.
-
-## Milestone 5 additions
-
-- **Email delivery, finally wired up**: `EmailProvider` protocol
-  (`SMTPEmailProvider` production / `ConsoleEmailProvider` dev default /
-  `FakeEmailProvider` test). Registration and forgot-password now
-  actually send verification/reset emails — closing the TODOs left in
-  Milestone 1.
-- **n8n integration**: `N8nClient` protocol (`HttpN8nClient` /
-  `FakeN8nClient`) triggers webhooks for external workflow automation.
-  Ships with an example workflow at `workflows/n8n/ticket-created-
-  notification.json`.
-- **New `workflows` module**: `Ticket` CRUD
-  (`/organizations/{org_id}/tickets`), the concrete "ticket creation"
-  feature. Every ticket creation fires an n8n `ticket.created` webhook.
-- **Supervisor graph gets real branches**: keyword-based routing across
-  `knowledge_agent` (existing), `workflow_agent` (drafts a ticket),
-  `email_agent` (drafts, and sends if a recipient is parseable). A chat
-  message like *"there's a bug in checkout"* now creates a real `Ticket`
-  row; *"send an email to bob@company.com about..."* actually sends via
-  the injected `EmailProvider`.
-- **Frontend**: `/dashboard/tickets` — create, list, inline status
-  updates, with a visible marker for agent-created vs manually-filed
-  tickets.
-- New Alembic migration: `0005_workflows` (tickets).
-- 17 new tests (notification/n8n providers including a real
-  unreachable-host error-handling test, ticket CRUD/RBAC, and full
-  chat→ticket / chat→email / agent-invoke→ticket end-to-end flows) —
-  **78 tests passing** total.
-
-## Milestone 6 additions
-
-- **New `audit` module**: `AuditLog` table + org-scoped
-  `GET /organizations/{org_id}/audit-logs` (owner/admin only).
-  `AuditRequestMiddleware` logs every API request (method/path/status/
-  latency/user/org/IP); login success/failure and AI actions (chat
-  messages, agent invocations) are logged explicitly at the point they
-  happen.
-- **New `analytics` module**: `GET /organizations/{org_id}/analytics/
-  overview` — document/chat/ticket/agent-run counts plus an
-  explicitly-labeled placeholder AI cost estimate.
-- **LangSmith tracing**: `app/core/tracing.py::configure_langsmith()`,
-  off by default, zero network calls unless `LANGCHAIN_TRACING_V2=true`.
-- **Prometheus metrics**: `GET /metrics` (`http_requests_total`,
-  `http_request_duration_seconds`, both labeled by method/route-template/
-  status) via a `PrometheusMiddleware` sibling to the audit middleware.
-- **Grafana + Prometheus** added to `docker-compose.yml`
-  (`prometheus:9090`, `grafana:3001`), with a starter dashboard at
-  `workflows/grafana/aegis-ai-overview-dashboard.json` (import manually
-  via Grafana's UI, same pattern as the n8n workflow JSON).
-- 4 new backend tests (`test_metrics.py`) covering the `/metrics` format,
-  counter increments, route-template cardinality control, and the
-  scrape-endpoint's own exclusion from its counters — verified as part of
-  the full backend suite.
-
-
-
-### Option A — Docker Compose (recommended)
+Docker Compose is the recommended path.
 
 ```bash
 cp apps/api/.env.example apps/api/.env
-# edit apps/api/.env and set a real JWT_SECRET_KEY
+# Edit apps/api/.env and set JWT_SECRET_KEY to a long random value.
 
 cd docker
 docker compose up --build
 ```
 
-- API: http://localhost:8000 (docs at `/api/docs`)
-- Web: http://localhost:3000
-- Postgres: localhost:5432 (`aegis` / `aegis`)
-- MinIO console: http://localhost:9001 (`aegis_minio` / `aegis_minio_secret`)
-- Ollama: http://localhost:11434 — pull a model once the container is up:
-  `docker exec -it $(docker compose -f docker/docker-compose.yml ps -q ollama) ollama pull llama3`
-- n8n: http://localhost:5678 — import
-  `workflows/n8n/ticket-created-notification.json` to see the example
-  ticket-creation automation.
-- Prometheus: http://localhost:9090 (scrapes `api:8000/metrics` every 15s)
-- Grafana: http://localhost:3001 (`admin` / `admin`) — import
-  `workflows/grafana/aegis-ai-overview-dashboard.json` manually
-  (Dashboards → Import) and point it at the Prometheus data source.
+Services:
 
-The `api` service runs `alembic upgrade head` automatically on startup.
-The `worker` service processes uploaded documents (text extraction,
-chunking, and embedding) in the background — it must be running for
-uploads to move past `status: pending`, and for chat retrieval to have
-anything to find.
+| Service | URL |
+|---|---|
+| Web | http://localhost:3000 |
+| API | http://localhost:8000 |
+| Swagger | http://localhost:8000/api/docs |
+| MinIO Console | http://localhost:9001 |
+| n8n | http://localhost:5678 |
+| Prometheus | http://localhost:9090 |
+| Grafana | http://localhost:3001 |
 
-### Option B — Run services individually
+For local LLM responses, pull a model once the Ollama container is running:
 
-**Backend**
 ```bash
-cd apps/api
-python -m venv .venv && source .venv/bin/activate
-pip install -e ../../packages/ai   # shared embeddings/vector-store/LLM code
-pip install -r requirements.txt
-cp .env.example .env  # set JWT_SECRET_KEY, point DATABASE_URL at your Postgres
-alembic upgrade head
-uvicorn app.main:app --reload
+docker exec -it $(docker compose ps -q ollama) ollama pull llama3
 ```
 
-**Frontend**
+## Development Workflow
+
+### Backend
+
+```bash
+cd apps/api
+python -m venv .venv
+source .venv/bin/activate
+pip install -e ../../packages/ai
+pip install -r requirements.txt
+DEBUG=false JWT_SECRET_KEY=test-secret python -m pytest tests/ -q
+```
+
+### Frontend
+
 ```bash
 cd apps/web
 npm install
-cp .env.example .env.local
 npm run dev
 ```
 
-**Worker**
-```bash
-cd apps/api  # worker imports the same app package
-celery -A ../worker/celery_app.celery_app worker --loglevel=info
-```
-
-### Running tests
+### Worker
 
 ```bash
 cd apps/api
-pytest tests/ -v
+celery -A ../worker/celery_app.celery_app worker --loglevel=info
 ```
 
-Tests run against an in-memory SQLite database — no external services
-required.
+### Database Migrations
 
-## API overview
+```bash
+cd apps/api
+alembic upgrade head
+```
 
-All routes are versioned under `/api/v1`.
+### Testing
 
-| Endpoint | Method | Auth | Description |
-|---|---|---|---|
-| `/api/v1/auth/register` | POST | — | Create account |
-| `/api/v1/auth/login` | POST | — | Get access/refresh tokens |
-| `/api/v1/auth/refresh` | POST | — | Rotate access token |
-| `/api/v1/auth/verify-email` | POST | — | Verify email via token |
-| `/api/v1/auth/forgot-password` | POST | — | Request reset token |
-| `/api/v1/auth/reset-password` | POST | — | Reset password via token |
-| `/api/v1/users/me` | GET / PATCH | Bearer | Current user profile |
-| `/api/v1/organizations` | GET / POST | Bearer | List / create organizations |
-| `/api/v1/organizations/{org_id}/invites` | POST | Bearer (owner/admin) | Invite a member |
-| `/api/v1/organizations/invites/accept` | POST | Bearer | Accept an invite |
-| `/api/v1/organizations/{org_id}/documents` | GET / POST | Bearer | List / upload documents |
-| `/api/v1/organizations/{org_id}/documents/{id}` | GET | Bearer | Document detail + latest version |
-| `/api/v1/organizations/{org_id}/documents/{id}` | DELETE | Bearer (owner/admin) | Soft delete |
-| `/api/v1/organizations/{org_id}/documents/{id}/versions` | GET / POST | Bearer | List versions / upload new version |
-| `/api/v1/organizations/{org_id}/documents/{id}/chunks` | GET | Bearer | Chunks of the latest version |
-| `/api/v1/organizations/{org_id}/chat/conversations` | GET / POST | Bearer | List / create conversations |
-| `/api/v1/organizations/{org_id}/chat/conversations/{id}/messages` | GET / POST | Bearer | List history / send a message (RAG) |
-| `/api/v1/agents` | GET | — | List available agents (platform-wide) |
-| `/api/v1/organizations/{org_id}/agents/invoke` | POST | Bearer | Ad-hoc agent invocation (no conversation) |
-| `/api/v1/organizations/{org_id}/agents/runs` | GET | Bearer | Agent invocation history |
-| `/api/v1/organizations/{org_id}/tickets` | GET / POST | Bearer | List / create tickets |
-| `/api/v1/organizations/{org_id}/tickets/{id}` | GET / PATCH | Bearer | Get ticket / update status, priority, assignment |
-| `/api/v1/organizations/{org_id}/audit-logs` | GET | Bearer (owner/admin) | List audit log entries for the org |
-| `/api/v1/organizations/{org_id}/analytics/overview` | GET | Bearer | Document/chat/ticket/agent-run counts + AI cost estimate |
-| `/metrics` | GET | — | Prometheus scrape endpoint |
-| `/health` | GET | — | Health check |
+```bash
+cd apps/api
+DEBUG=false JWT_SECRET_KEY=test-secret python -m pytest tests/ -q
 
-Full interactive docs at `/api/docs` when `ENVIRONMENT != production`.
+cd ../web
+npm run lint
+npm run build
+```
 
-## Milestone 6 completion verification
+## API
 
-- Backend: `DEBUG=false JWT_SECRET_KEY=test-secret python3.12 -m pytest tests/ -q` → `95 passed`
-- Frontend: `npm run build` ✅ and `npm run lint` ✅
-- Docker compose config: YAML validation pass
+The API is versioned under `/api/v1`. In non-production environments, interactive Swagger documentation is available at:
+
+```text
+http://localhost:8000/api/docs
+```
+
+The FastAPI app also exposes:
+
+- `GET /health` for health checks.
+- `GET /metrics` for Prometheus scraping.
+
+## Documentation
+
+| Topic | Link |
+|---|---|
+| Architecture | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) |
+| Database Design | [Architecture: database conventions](docs/ARCHITECTURE.md#database-conventions-enforced-by-mixins-in-appcoremodels_mixins.py) |
+| API Reference | [Swagger UI at `/api/docs`](#api) |
+| Deployment | [Docker Compose setup](#running-locally) |
+| Contributing | [Contributing](#contributing) |
+
+## Roadmap
+
+| Status | Work |
+|---|---|
+| Completed | Auth, organizations, document processing, RAG chat, LangGraph supervisor, knowledge/workflow/email agents, tickets, n8n integration, email provider, analytics, audit logs, Prometheus metrics, Grafana dashboard, CI. |
+| In Progress | Product screenshots, public demo polish, stronger documentation split across `docs/`. |
+| Future | OCR execution for scanned PDFs, streaming chat responses, stronger prompt-injection defenses, automated PII detection/redaction, hosted deployment guides, richer workflow builder UX, token-level AI cost metering. |
+
+## Contributing
+
+Contributions are welcome.
+
+1. Fork the repository and create a feature branch.
+2. Keep changes scoped to one module or workflow.
+3. Add or update tests when behavior changes.
+4. Run backend tests and frontend lint/build before opening a pull request.
+5. Describe the problem, solution, verification steps, and any follow-up work.
+
+For architecture decisions and module boundaries, start with [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
+## License
+
+MIT.
